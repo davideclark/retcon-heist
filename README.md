@@ -9,59 +9,100 @@ It runs using the M4ZVM interpreter which is available for the TS80 and other 8 
 ## Game Features
 
 - ✅ 10 interconnected rooms (Computer Fair venue)
-- ✅ 15 interactive objects (clues, tools, quest items)
-- ✅ 4 NPCs with dialogue (Mike, Dave, Technician, Dodgy Vendor)
-- ✅ Complete puzzle chain (toolkit→screwdriver→crate→chip)
-- ✅ Scoring system (120 points maximum)
-- ✅ Win condition (escape with prototype chip)
-- ✅ Time pressure (50-move limit, 35-move thief escape)
+- ✅ 25 NPCs including 23 club members participating in the raffle
+- ✅ Interactive objects (clues, tools, quest items)
+- ✅ Complete puzzle chain leading to recovery of stolen Spectrum Next
+- ✅ Scoring system (105 points maximum)
+- ✅ Random raffle winner selection
+- ✅ Win condition (recover the grand prize and complete the raffle)
 - ✅ Save/load functionality
 
 ### Source Code
-- `computer-fair-heist.inf` - Main Inform 6 source code (521 lines)
-- `compile.sh` - Build script for Z3 compilation
+- `computer-fair-heist.inf` - Main Inform 6 source code (577 lines)
+- `compile.sh` - Build script for Mac/Linux
+- `compile.bat` - Build script for Windows
 
 ### Compiled Output
-- `computer-fair-heist.z3` - Compiled game file (34KB)
+- `heist28.z3` - Compiled game file (~49KB)
 
-### Dependencies
+## Dependencies
 
-- PunyInform library 
+### Required Software
+
+**Inform 6 Compiler:**
+- **Windows:** Download from [IF Archive - Inform 6 Executables](https://ifarchive.org/indexes/if-archive/infocom/compilers/inform6/executables/)
+  - Get `inform644_win32.zip`
+  - Extract and place `inform6.exe` in your PATH (e.g., `C:\Windows\System32`)
+- **Mac:** `brew install inform6`
+- **Linux:** Available via package managers or compile from [source](https://github.com/DavidKinder/Inform6)
+
+**PunyInform Library:**
+- Download from [PunyInform Releases](https://github.com/johanberntsson/PunyInform/releases)
+- **Windows:** Extract to `C:\Program Files (x86)\PunyInform-6_3_1\`
+- **Mac/Linux:** Automatically included with Homebrew's inform6 package
+
+**Z-Machine Interpreter (for testing):**
+- **Windows:** Download [Windows Frotz](https://ifarchive.org/indexes/if-archive/infocom/interpreters/frotz/)
+  - Get `WindowsFrotzSrc.zip` (includes compiled Frotz.exe)
+  - Extract to `C:\Program Files (x86)\WindowsFrotz\`
+  - Add to PATH for command-line use
+- **Mac:** `brew install frotz`
+- **Linux:** `apt-get install frotz` or equivalent
 
 ## Building
 
-To compile the game
+### On Windows
 
+```batch
+compile.bat
+```
+
+This will create `heist28.z3` in the current directory.
+
+**Note:** If you change the BUILD_NUMBER in `computer-fair-heist.inf`, update the VERSION variable on line 10 of `compile.bat` to match.
+
+### On Mac/Linux
+
+```bash
 ./compile.sh
+```
 
-This will create `computer-fair-heist.z3` in the current directory.
+This will create `heist28.z3` in the current directory.
 
 ## Testing
 
-### On Mac (using frotz)
+### On Windows (using Windows Frotz)
+
+```batch
+Frotz.exe heist28.z3
+```
+
+Or double-click `heist28.z3` if you've associated .z3 files with Frotz.
+
+### On Mac/Linux (using frotz)
 
 ```bash
-frotz computer-fair-heist.z3
+frotz heist28.z3
 ```
 
 ### On TRS-80 (using M4ZVM)
 
-1. Copy `computer-fair-heist.z3` to a TRS-80 disk image
+1. Copy `heist28.z3` to a TRS-80 disk image
 2. Boot the TRS-80 with M4ZVM Trinity boot disk
 3. Use the IMPORT2 command to load the game:
    ```
-   IMPORT2 COMPUTER-FAIR-HEIST/Z3 :1
+   IMPORT2 HEIST28/Z3 :1
    ```
 4. Run M4ZVM64/CMD or M4ZVM/CMD
-5. Type the filename: `COMPUTER-FAIR-HEIST`
+5. Type the filename: `HEIST28`
 
 ## Technical Details
 
 ### Z-Machine Version
 - **Format:** Z-code Version 3
 - **Max story file size:** 128KB
-- **Actual size:** 34KB
-- **Headroom:** 94KB available
+- **Actual size:** ~49KB
+- **Headroom:** ~79KB available
 
 ### Compiler Options Used
 ```inform6
