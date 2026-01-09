@@ -1,24 +1,12 @@
-# The Computer Fair Heist - PunyInform Edition
+# The Computer Fair Heist
 
 ## Overview
 
-This is a complete port of "The Computer Fair Heist" from Inform 7 to Inform 6 using the PunyInform library, specifically optimized for TRS-80 Model 4 with M4ZVM interpreter.
-
-## Performance Improvements
-
-### File Size Reduction
-- **Inform 7 (Z8 format):** 317KB
-- **PunyInform (Z3 format):** 34KB
-- **Reduction:** 9.3x smaller (89% size reduction)
-
-### Expected Performance Gains
-- **Faster text rendering:** Z3 format has minimal overhead for 8-bit systems
-- **Reduced memory usage:** Smaller file footprint
-- **Optimized for TRS-80:** PunyInform is specifically designed for retro hardware
+This is a text adventure game specifically optimized for TRS-80 Model 4 mobile.
+It was developed with goal of being used at the Greenford Computer Club Retcon 2026 show.
+It runs using the M4ZVM interpreter which is available for the TS80 and other 8 bit computers.
 
 ## Game Features
-
-All core gameplay features from the Inform 7 version have been preserved:
 
 - ✅ 10 interconnected rooms (Computer Fair venue)
 - ✅ 15 interactive objects (clues, tools, quest items)
@@ -27,14 +15,7 @@ All core gameplay features from the Inform 7 version have been preserved:
 - ✅ Scoring system (120 points maximum)
 - ✅ Win condition (escape with prototype chip)
 - ✅ Time pressure (50-move limit, 35-move thief escape)
-- ✅ Save/load functionality (built into Z-machine)
-
-### Features Simplified for Performance
-- Score ranks and certificates removed (user accepted trade-off)
-- Dynamic room descriptions simplified to static descriptions
-- Parser uses PunyInform's standard ASK/TELL/ANSWER system instead of custom TALK verb
-
-## Files
+- ✅ Save/load functionality
 
 ### Source Code
 - `computer-fair-heist.inf` - Main Inform 6 source code (521 lines)
@@ -44,17 +25,14 @@ All core gameplay features from the Inform 7 version have been preserved:
 - `computer-fair-heist.z3` - Compiled game file (34KB)
 
 ### Dependencies
-- PunyInform library (automatically installed with Inform 6 via Homebrew)
-- Inform 6 compiler v6.42 (installed via Homebrew)
+
+- PunyInform library 
 
 ## Building
 
-To compile the game:
+To compile the game
 
-```bash
-cd /Users/davidclark/Documents/TRS/trs80-game/punyinform
 ./compile.sh
-```
 
 This will create `computer-fair-heist.z3` in the current directory.
 
@@ -93,73 +71,11 @@ frotz computer-fair-heist.z3
 !% $LONG_DICT_FLAG_BUG=0    ! Enable plural flag bug fix
 ```
 
-### Key Inform 6 Differences from Inform 7
-
-1. **Syntax:** C-like procedural instead of natural language
-2. **Objects:** Explicit property and attribute declarations
-3. **Actions:** Handled in `before`/`after`/`life` routines
-4. **NPCs:** Use Answer/Ask/Tell instead of Talk
-5. **Attributes:** No `takeable` attribute (items are takeable by default unless `static`)
-
 ## Game Structure
 
-### Rooms (10 locations)
-1. Entrance Hall
-2. Security Checkpoint (exit point)
-3. Main Exhibition Hall
-4. Demo Area
-5. Vendor Stall 1 (dodgy vendor location)
-6. Vendor Stall 2
-7. Storage Room (prototype location)
-8. Cafeteria (Mike's location)
-9. Toilets (toolkit location)
-10. Back Office (security pass location)
-
-### Puzzle Solution Path
-1. Talk to Mike in Cafeteria → learn about storage room
-2. Talk to Dave in Exhibition Hall → learn about dodgy vendor
-3. Search stacked boxes in Vendor Stall 2 → find office key
-4. Get toolkit from Toilets → get screwdriver inside
-5. Use office key to unlock staff door → access Back Office
-6. Get security pass from Back Office
-7. Use screwdriver to open urgent crate in Storage Room → get prototype chip
-8. Go north from Security Checkpoint with chip → WIN!
-
-### Scoring Breakdown
-- Talk to Mike: +5 points
-- Talk to Dave: +10 points
-- Examine napkin: +5 points
-- Find office key in boxes: +10 points
-- Take show badge: +10 points
-- Take toolkit: +10 points
-- Open toolkit (get screwdriver): +10 points
-- Take screwdriver: +10 points
-- Take office key: +10 points
-- Take security pass: +20 points
-- Take prototype chip: +30 points
-- **Maximum:** 120 points
+See [GAME_STRUCTURE.md](GAME_STRUCTURE.md) for detailed information about rooms, puzzle solutions, and scoring.
 
 ## Development Notes
-
-### Porting Process
-The game was manually ported from Inform 7 to Inform 6/PunyInform to solve performance issues on the TRS-80. Key changes:
-
-1. **Converted natural language to procedural code**
-   - Inform 7's declarative style → Inform 6's imperative style
-   - Example: "The badge is in the hall" → `Object show_badge "show badge" Entrance_Hall`
-
-2. **Simplified parser interaction**
-   - Custom TALK verb → Standard ASK/TELL/ANSWER
-   - Maintained game functionality while using library verbs
-
-3. **Optimized object structure**
-   - Limited name properties to 4 words (Z3 constraint)
-   - Used `concealed` attribute for hidden objects
-   - Removed unnecessary attributes
-
-4. **Streamlined time mechanics**
-   - Implemented via `each_turn` property on daemon object
-   - Checks turn count every turn for time limits
 
 ### Compatibility
 - **TRS-80 Models:** Model 4 with 128KB RAM
@@ -170,18 +86,11 @@ The game was manually ported from Inform 7 to Inform 6/PunyInform to solve perfo
 ## Credits
 
 - **Game Design & Story:** David and Nigel Clark
-- **Inform 7 Version:** Original implementation
-- **PunyInform Port:** Conversion to Inform 6 for TRS-80 optimization
 - **Library:** PunyInform by Johan Berntsson
 - **Compiler:** Inform 6 by Graham Nelson
 
 ## Version History
 
-### Version 1.0 (2025-12-28)
-- Initial PunyInform port from Inform 7
-- File size reduced from 317KB to 34KB (9.3x reduction)
-- All core gameplay features preserved
-- Optimized for TRS-80 Model 4 with M4ZVM
 
 ## License
 
@@ -197,4 +106,4 @@ For issues with:
 
 ---
 
-**Enjoy your heist at the 1983 Computer Fair!**
+**Enjoy your heist at the 2025 Computer Fair!**
