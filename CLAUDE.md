@@ -4,27 +4,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is "The Computer Fair Heist", a text adventure game written in Inform 6 using the PunyInform library. It's a port from Inform 7, specifically optimized for the TRS-80 Model 4 using the M4ZVM Z-machine interpreter.
+This is "The Retcon Heist", a text adventure game written in Inform 6 using the PunyInform library, specifically optimized for the TRS-80 Model 4 using the M4ZVM Z-machine interpreter.
 
-**Key Context:** This is a retro computing project targeting 1980s hardware constraints. The game compiles to Z-code version 3 (Z3), achieving a 9.3x size reduction from the original Inform 7 version (317KB → 34KB).
+**Key Context:** This is a retro computing project targeting 1980s hardware constraints. The game compiles to Z-code version 3 (Z3). Players must recover a stolen Spectrum Next grand prize before the club raffle begins, featuring 25 NPCs and a random raffle winner system. Current build size: ~49KB.
 
 ## Build Commands
 
 ### Compile the game
+
+**Windows:**
+```batch
+compile.bat
+```
+Note: Update VERSION variable in compile.bat when BUILD_NUMBER changes in .inf file.
+
+**Mac/Linux:**
 ```bash
 ./compile.sh
 ```
+The script uses the punyinform wrapper from Homebrew which automatically sets up correct library paths.
 
-This builds `heist{VERSION}.z3` (auto-incremented version numbers). The script uses the punyinform wrapper from Homebrew which automatically sets up correct library paths.
+Both scripts build `heist{VERSION}.z3` (currently heist28.z3).
 
 ### Test locally
+
+**Windows:**
+```batch
+Frotz.exe heist28.z3
+```
+
+**Mac/Linux:**
 ```bash
-frotz heist{VERSION}.z3
+frotz heist28.z3
 ```
 
 ### Deploy to TRS-80
 ```bash
-cp heist{VERSION}.z3 ../gotek-disks/
+cp heist28.z3 ../gotek-disks/
 ```
 
 ## Architecture
@@ -60,28 +76,43 @@ These optimize for size while maintaining Z3 compatibility.
 
 ### Game Structure
 
-**10 Rooms:** Entrance_Hall, Security_Checkpoint, Exhibition_Hall, Demo_Area, Vendor_Stall_1, Vendor_Stall_2, Storage_Room, Cafeteria, Toilets, Back_Office
+**10 Rooms:** Entrance_Hall, Presentation_Room, Exhibition_Hall, Demo_Area, Vendor_Stall_1, Vendor_Stall_2, Storage_Room, Cafeteria, Toilets, Back_Office
 
-**4 NPCs:** Mike, Dave, Technician, Dodgy Vendor
-- Use `life` property to handle Answer/Ask/Tell/Show actions
+**25 NPCs:**
+- **Main NPCs:** Steve (organizer), Mike, Dave, Technician, Dodgy Vendor
+- **Club Members (23 total):** Adam, Adrian, Alan, Andrew, Ben, Carlo, Chris Green, Chris NS, Ed, Fasih, Gary, Gordon, Mark, Martin, Martyn, Michael, Mike, Muzaffer, Neil, Nigel, Rob, Dave, Steve
+- All NPCs use `life` property to handle Answer/Ask/Tell/Show/Give actions
 - Must have `animate talkable` attributes
+- Club members participate in random raffle draw at game end
 
-**Quest Items:** show_badge, security_pass, prototype_chip, toolkit, screwdriver, office_key
+**Quest Items:** show_badge, spectrum_next, toolkit, screwdriver, office_key, coffee (optional bonus)
 
-**Scenery/Containers:** phone, safe, urgent_crate, stacked_boxes, staff_door
+**Scenery/Containers:** phone, safe, urgent_crate (prize_crate), stacked_boxes, staff_door, napkin, catalogue, pricelist, manifest
 
 ### Game Mechanics
 
-**Time Limits (computer-fair-heist.inf:554-576):**
+**Time Limits (computer-fair-heist.inf:1644-1666):**
 Implemented via `timer_daemon` object with `each_turn` property:
 - 50-move hard limit (game over)
-- 35-move thief escape (if chip not recovered)
+- 35-move thief escape (if spectrum_next not recovered from Storage_Room)
 
-**Scoring (MAX_SCORE = 120):**
+**Scoring (MAX_SCORE = 105):**
 Points awarded via `after` routines when objects taken/examined for first time. Uses `moved` attribute to track if item scored.
+- Talking to NPCs: 5-10 points
+- Finding/taking quest items: 10-30 points
+- Spectrum Next recovery: 30 points (biggest score)
+- Optional coffee bonus: 5 points
 
-**Victory Condition (computer-fair-heist.inf:77-97):**
-In Security_Checkpoint's `n_to` property: checks if `prototype_chip in player`. Sets `deadflag = 2` for victory, `deadflag = 1` for defeat.
+**Raffle System (computer-fair-heist.inf:55-83):**
+`RandomClubMember()` function selects winner from all 23 club members. Winner is chosen when player gives spectrum_next to Steve in Presentation_Room.
+
+**Victory Condition (computer-fair-heist.inf:149-163):**
+In Presentation_Room's `n_to` property: checks if `raffle_completed`. Player must:
+1. Recover spectrum_next from Storage_Room
+2. Enter Presentation_Room (triggers Steve + NPCs to move there)
+3. Give spectrum_next to Steve (triggers raffle)
+4. Exit north from Presentation_Room
+Sets `deadflag = 2` for victory, `deadflag = 1` for defeat.
 
 ### Key Inform 6 Patterns
 
@@ -99,20 +130,21 @@ s_to [;
 ```
 
 **Container Interactions:**
-`urgent_crate` requires screwdriver to open. Check in `before Open` routine, spawn prototype_chip when opened.
+`urgent_crate` (prize_crate) requires screwdriver to open. Check in `before Open` routine, spawn spectrum_next when opened.
 
 **NPC Dialogue:**
 NPCs respond in `life` property to Answer/Ask/Tell actions. Track conversation state with globals (mike_talked, dave_talked). Use TALK verb as alias: redirects to Ask action.
 
-**Custom Verbs (computer-fair-heist.inf:498-546):**
+**Custom Verbs (computer-fair-heist.inf:1568-1637):**
 - USE: redirects to appropriate Open action based on noun/location
-- TALK: redirects to Ask action
+- TALK: redirects to Ask action (allows "TALK TO MIKE" as alternative to "ASK MIKE")
 - HELP: prints command reference
+- DRINK: custom replacement handling coffee consumption with badge check
 
 ## Important Constraints
 
 ### Z3 Format Limits
-- 128KB max story file (currently 34KB)
+- 128KB max story file (currently ~49KB, ~79KB headroom)
 - Name properties limited to 4 words
 - No Unicode or extended characters
 - 255 objects maximum
@@ -176,22 +208,36 @@ after [;
 
 ## Testing Notes
 
-- Test on Mac with frotz before deploying to TRS-80
+- Test on Mac/Windows with frotz before deploying to TRS-80
 - Verify move count doesn't exceed 50 turns for normal playthrough
-- Check critical path can be completed in under 35 moves
-- Ensure all 120 points are achievable
+- Check critical path can be completed in under 35 moves (before thief escapes)
+- Ensure all 105 points are achievable
 - Test save/restore functionality
+- Test random raffle winner selection (should vary between playthroughs)
+- Verify all 23 club members can win the raffle
 
 ## Dependencies
 
-- **Inform 6 compiler:** v6.42 (installed via Homebrew: `brew install inform6`)
-- **PunyInform library:** Automatically included with inform6 Homebrew package
-- **frotz:** Z-machine interpreter for testing (install: `brew install frotz`)
-- **M4ZVM:** TRS-80 Z-machine interpreter (deployed separately on target hardware)
+**Inform 6 compiler:**
+- **Windows:** v6.44 - Download from [IF Archive](https://ifarchive.org/indexes/if-archive/infocom/compilers/inform6/executables/) (`inform644_win32.zip`)
+- **Mac:** `brew install inform6`
+
+**PunyInform library:**
+- **Windows:** Download from [GitHub Releases](https://github.com/johanberntsson/PunyInform/releases), extract to `C:\Program Files (x86)\PunyInform-6_3_1\`
+- **Mac/Linux:** Automatically included with inform6 Homebrew package
+
+**Z-machine interpreter (for testing):**
+- **Windows:** Windows Frotz - Download from [IF Archive](https://ifarchive.org/indexes/if-archive/infocom/interpreters/frotz/) (`WindowsFrotzSrc.zip`)
+- **Mac:** `brew install frotz`
+
+**M4ZVM:** TRS-80 Z-machine interpreter (deployed separately on target hardware)
 
 ## File Organization
 
-- `computer-fair-heist.inf` - Main source file (577 lines)
-- `compile.sh` - Build script with version auto-increment
-- `heist{N}.z3` - Compiled output (auto-versioned)
-- `README.md` - User documentation with full game guide
+- `computer-fair-heist.inf` - Main source file (1667 lines)
+- `compile.sh` - Build script for Mac/Linux (auto-increments version)
+- `compile.bat` - Build script for Windows (VERSION hardcoded, update manually)
+- `heist28.z3` - Compiled output (~49KB)
+- `README.md` - User documentation with build instructions
+- `GAME_STRUCTURE.md` - Detailed game walkthrough, rooms, and scoring
+- `CLAUDE.md` - This file - AI assistant guidance
