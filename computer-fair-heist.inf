@@ -1,0 +1,1666 @@
+!% -~S
+!% $OMIT_UNUSED_ROUTINES=1
+!% $ZCODE_LESS_DICT_DATA=1
+!% $LONG_DICT_FLAG_BUG=0
+
+! The Retcon Heist
+! A PunyInform text adventure for TRS-80
+! By David and Nigel Clark
+!
+! Created with Inform 6/PunyInform for optimal performance
+! on TRS-80 Model 4 with M4ZVM interpreter
+
+Constant Story      "The Retcon Heist";
+Constant Headline   "^A Text Adventure for the TRS-80^";
+Constant INITIAL_LOCATION_VALUE = Entrance_Hall;
+
+! Use score/turns statusline
+Constant STATUSLINE_SCORE; Statusline score;
+Constant MAX_SCORE = 105;
+
+Release 2;
+Serial "251229";  ! Update to today's date
+Constant BUILD_NUMBER = 28;  ! Update before each build
+
+Include "globals.h";
+
+! ====================================================================
+! GLOBAL VARIABLES
+! ====================================================================
+
+Global mike_talked = 0;
+Global dave_talked = 0;
+Global toolkit_opened = 0;
+Global crate_opened = 0;
+Global office_unlocked = 0;
+Global thief_escaped = 0;
+Global npcs_moved = 0;       ! Track if NPCs have moved to presentation room
+Global raffle_completed = 0; ! Track if raffle has been done
+Global raffle_winner = 0;    ! Store winner NPC reference
+Global steve_met = 0;        ! Track if player has met Steve initially
+Global mike_coffee_approved = 0;  ! Track if Mike has approved you for coffee
+Global coffee_drunk = 0;     ! Track if you've drunk the coffee
+
+! Replace library routines
+Replace VersionSub;
+Replace DrinkSub;
+
+! Include the main PunyInform library
+Include "puny.h";
+
+! ====================================================================
+! RANDOM WINNER SELECTION
+! ====================================================================
+
+[ RandomClubMember winner;
+  ! Randomly select one of the 23 club members (includes Steve who runs it!)
+  winner = random(23);
+  switch (winner) {
+    1: return adam;
+    2: return steve;
+    3: return adrian;
+    4: return alan;
+    5: return andrew;
+    6: return ben;
+    7: return carlo;
+    8: return chris_green;
+    9: return chris_ns;
+    10: return ed;
+    11: return fasih;
+    12: return gary;
+    13: return gordon;
+    14: return mark;
+    15: return martin;
+    16: return martyn;
+    17: return michael;
+    18: return mike;
+    19: return muzaffer;
+    20: return neil;
+    21: return nigel;
+    22: return rob;
+    23: return dave;
+  }
+];
+
+! ====================================================================
+! INITIALIZATION
+! ====================================================================
+
+[Initialise;
+  location = INITIAL_LOCATION_VALUE;
+  lookmode = 2; ! VERBOSE mode
+  print "^^THE RETCON HEIST^^A Text Adventure^^By David and Nigel Clark, 2026^^";
+  print "Build ", BUILD_NUMBER, " (Release 2 / Serial 251229)^^";
+  print "GREENFORD COMPUTER CLUB - RETCON COMPUTER SHOW 2025^^";
+  print "You've just arrived at the annual Retcon show, the biggest retro computing event of the year. ";
+  print "The venue is buzzing with excitement - vendors, demonstrations, and fellow enthusiasts everywhere.^^";
+  print "As you step into the entrance hall, you spot Steve, one of the club organisers. ";
+  print "He looks distressed and is scanning the crowd anxiously.^^";
+  print "Type HELP for a list of commands.^^";
+];
+
+! ====================================================================
+! VERSION COMMAND OVERRIDE
+! ====================================================================
+
+[ VersionSub;
+  Banner();  ! Display standard version info
+  print "Build ", BUILD_NUMBER, "^^";  ! Add build number
+];
+
+! ====================================================================
+! ROOMS (10 locations)
+! ====================================================================
+
+Object Entrance_Hall "Entrance Hall"
+  with description
+         "You're in the entrance of the Greenford Computer Club's Retcon Computer Show 2025. \
+          Crowds mill about, their excited chatter filling the air. The smell of fresh electronics \
+          and instant coffee mingles in the busy space.^^\
+          To the north is the presentation room. The main exhibition hall lies to the east. \
+          The cafeteria is to the south.",
+       n_to [;
+         ! Block entry if presentation in progress and no spectrum
+         if (~~npcs_moved) {
+           print "You can't enter the presentation room - there's a presentation in progress. ";
+           print "You'll need the grand prize first.^";
+           return true;
+         }
+
+         ! Allow entry once NPCs have moved (i.e., player has spectrum)
+         return Presentation_Room;
+       ],
+       e_to Exhibition_Hall,
+       s_to Cafeteria,
+  has light;
+
+Object Presentation_Room "Presentation Room"
+  with description [;
+         print "The club's presentation room, set up for tonight's raffle draw. ";
+         if (~~raffle_completed) {
+           print "Steve stands at the front, ready to run the raffle. Club members fill the room, chatting excitedly. ";
+         }
+         else {
+           print "The raffle has concluded. ", (The) raffle_winner, " is celebrating while others look disappointed. ";
+         }
+         print "^^South returns to the entrance hall. North leads to the exit.";
+       ],
+       s_to Entrance_Hall,
+       n_to [;
+         if (raffle_completed) {
+           ! Victory
+           print "^^***CONGRATULATIONS!***^^You've successfully returned the Spectrum Next and saved the raffle! ";
+           print "The club's reputation is intact and everyone had a great time.^^";
+           print "*** YOU WIN! ***^^Final Score: ", score, " / ", MAX_SCORE, "^";
+           print "Moves: ", turns, "^^";
+           deadflag = 2;
+           return;
+         }
+         else {
+           print "You should give the Spectrum Next to Steve for the raffle first!^";
+           return false;
+         }
+       ],
+  has light;
+
+Object Exhibition_Hall "Main Exhibition Hall"
+  with description
+         "The exhibition floor buzzes with excitement. Rows of vendor stalls stretch out \
+          before you, each showcasing the latest in computing technology. People cluster \
+          around demo stations, watching graphics routines and database programs in action.^^\
+          The entrance hall is back to the west. The demonstration area is to the east. \
+          Two vendor stalls lie to the south.",
+       w_to Entrance_Hall,
+       e_to Demo_Area,
+       s_to Vendor_Stall_1,
+       se_to Vendor_Stall_2,
+  has light;
+
+Object Demo_Area "Demo Area"
+  with description
+         "A raised platform showcases the latest software. A pristine TRS-80 Model 4 runs \
+          an impressive graphics demonstration, drawing wireframe shapes that rotate hypnotically \
+          on the screen. A technician tends to the equipment, making sure everything runs smoothly.^^\
+          The main hall is to the west. Another vendor stall is visible to the south.",
+       w_to Exhibition_Hall,
+       s_to Vendor_Stall_2,
+  has light;
+
+Object Vendor_Stall_1 "Vendor Stall 1"
+  with description [;
+         print "A cramped stall packed with chips and circuit boards. The vendor looks nervous, \
+                constantly glancing around. ";
+         if (pricelist in self)
+           print "Suspiciously low prices are scrawled on a handwritten pricelist. ";
+         print "^^You can head north back to the main hall, or east to the adjacent stall. The toilets are to the south.";
+       ],
+       n_to Exhibition_Hall,
+       e_to Vendor_Stall_2,
+       s_to Toilets,
+       nw_to Exhibition_Hall,
+  has light;
+
+Object Vendor_Stall_2 "Vendor Stall 2"
+  with description [;
+         print "A Tandy dealer's stall. Empty boxes are stacked high against the walls. ";
+         if (manifest in self)
+           print "A shipping manifest lies on the counter. ";
+         print "^^The main hall is north, Vendor Stall 1 is to the west, and the storage room entrance is to the east.";
+       ],
+       n_to Demo_Area,
+       w_to Vendor_Stall_1,
+       e_to Storage_Room,
+       nw_to Exhibition_Hall,
+  has light;
+
+Object Storage_Room "Storage Room"
+  with description [;
+         print "A cluttered back room full of equipment. Wooden crates are stacked everywhere, \
+                some labeled with vendor names and product codes. ";
+         if (~~crate_opened)
+           print "The most prominent crate is marked 'FRAGILE - SPECTRUM NEXT - GRAND PRIZE' in red letters. ";
+         print "^^The only exit is west to the vendor stall.";
+       ],
+       w_to Vendor_Stall_2,
+  has light;
+
+Object Cafeteria "Cafeteria"
+  with description
+         "Instant coffee and stale sandwiches are laid out on a folding table. \
+          The harsh fluorescent lighting does nothing to make the food look appetizing. \
+          A few tired attendees sit at plastic chairs, taking a break from the exhibition floor. \
+          Mike from your local user group sits alone at a table, looking worried.^^\
+          The entrance hall is to the north.",
+       n_to Entrance_Hall,
+  has light;
+
+Object coffee "cup of coffee" Cafeteria
+  with name 'cup' 'coffee' 'instant',
+       description "A steaming cup of instant coffee in a disposable cup. It doesn't look great, but it smells decent enough.",
+       before [;
+         Take:
+           if (~~mike_coffee_approved) {
+             print "Mike calls out: 'Sorry, the coffee is for show attendees only. You'll need to show me your visitor badge first!'^^";
+             rtrue;
+           }
+       ];
+
+Object Toilets "Toilets"
+  with description [;
+         print "A grotty show toilet. The cramped space smells of cheap disinfectant and has \
+               seen better days. The dripping sink makes an annoying rhythmic plinking sound. ";
+         if (toolkit in self)
+           print "Someone has left a toolkit on the windowsill. ";
+         print "^^The exit is to the north. ";
+         if (office_unlocked)
+           print "A door to the south leads to the back office.";
+         else
+           print "A locked door to the south has 'STAFF ONLY' stenciled on it.";
+       ],
+       n_to Vendor_Stall_1,
+       s_to [;
+         if (office_unlocked) return Back_Office;
+         print "The door is locked. You need a key.^";
+         return false;
+       ],
+  has light;
+
+Object Back_Office "Back Office"
+  with description [;
+         print "The organiser's office. Papers and printouts are scattered across every surface. \
+                Computer magazines teeter in precarious stacks. Filing cabinets line one wall. \
+                A desk phone sits amid the chaos. ";
+         if (toolkit in self)
+           print "A black toolkit case sits on the desk. ";
+         print "^^The exit is north to the toilets.";
+       ],
+       n_to Toilets,
+  has light;
+
+! ====================================================================
+! OBJECTS - Quest Items
+! ====================================================================
+
+Object show_badge "show badge" Entrance_Hall
+  with name 'show' 'badge' 'visitor' 'pass',
+       description "A visitor pass for the Retcon Computer Show 2025. It has a lanyard and reads 'VISITOR' in large letters.",
+  has clothing;
+
+Object spectrum_next "Spectrum Next"  ! Created when crate opened
+  with name 'spectrum' 'next' 'computer' 'prize',
+       description "A stunning Special Edition White Spectrum Next, still sealed in its original box with certificate of authenticity. This is the grand prize for tonight's raffle draw - extremely rare and valuable!",
+       after [;
+         Take:
+           if (self hasnt moved) {
+             score = score + 30;
+             give self moved;
+             print "[*** SCORE +30 ***]^^";
+             ! Steve appears to congratulate you
+             if (~~npcs_moved) {
+               npcs_moved = 1;
+               move steve to location;  ! Steve appears in current room (Storage_Room)
+               print "Steve suddenly appears, out of breath from running. His face breaks into a huge smile!^^";
+               print "'You found it! You actually found it!' he exclaims, relief flooding his features. ";
+               print "'That's brilliant work! Now please, bring it to me in the presentation room as quickly as you can. ";
+               print "The raffle is about to start and everyone is waiting!'^^";
+               print "Steve hurries off towards the presentation room.^^";
+               ! Move everyone to presentation room
+               move steve to Presentation_Room;
+               move mike to Presentation_Room;
+               move dave to Presentation_Room;
+             }
+             return true;
+           }
+       ];
+
+! ====================================================================
+! OBJECTS - Tools
+! ====================================================================
+
+Object toolkit "toolkit" Back_Office
+  with name 'toolkit' 'case' 'black',
+       description "A small black toolkit case with a hinged lid.",
+       before [;
+         Open:
+           if (~~toolkit_opened) {
+             toolkit_opened = 1;
+             score = score + 10;
+             move screwdriver to self;
+             give self open;
+             print "You open the toolkit. Inside is a screwdriver!^[*** SCORE +10 ***]^";
+             return true;
+           }
+       ],
+       after [;
+         Take:
+           if (self hasnt moved) {
+             score = score + 10;
+             give self moved;
+             print "[*** SCORE +10 ***]^";
+             return true;
+           }
+       ],
+  has container openable;
+
+Object screwdriver "screwdriver"
+  with name 'screwdriver' 'tool' 'red',
+       description "A flat-head screwdriver with a red plastic handle. Perfect for prying open crates.",
+       after [;
+         Take:
+           if (self hasnt moved) {
+             score = score + 10;
+             give self moved;
+             print "[*** SCORE +10 ***]^";
+             return true;
+           }
+       ];
+
+Object office_key "office key" Vendor_Stall_2
+  with name 'office' 'key' 'brass',
+       description "A small brass key with a paper tag reading 'OFFICE'.",
+       after [;
+         Take:
+           if (self hasnt moved) {
+             score = score + 10;
+             give self moved;
+             print "[*** SCORE +10 ***]^";
+             return true;
+           }
+       ],
+  has concealed;
+
+! ====================================================================
+! OBJECTS - Clues and Documentation
+! ====================================================================
+
+Object napkin "napkin" Cafeteria
+  with name 'napkin' 'paper' 'note',
+       description "A paper napkin with hasty handwriting scrawled on it. It reads: 'STORAGE RM - 3PM - URG CRATE'.",
+       before [;
+         Examine:
+           if (self hasnt moved) {
+             score = score + 5;
+             give self moved;
+             print "A paper napkin with hasty handwriting scrawled on it. It reads: 'STORAGE RM - 3PM - URG CRATE'.^[*** SCORE +5 ***]^";
+             return true;
+           }
+       ];
+
+Object catalogue "catalogue" Exhibition_Hall
+  with name 'catalogue' 'catalog' 'show',
+       description "A glossy show catalogue listing all the vendors and attractions.";
+
+Object pricelist "pricelist" Vendor_Stall_1
+  with name 'pricelist' 'price' 'list',
+       description "A handwritten list of suspiciously high prices for rare retro computers. Spectrum Next listed at double market price! Someone's trying to cash in.";
+
+Object manifest "shipping manifest" Vendor_Stall_2
+  with name 'manifest' 'shipping' 'delivery',
+       description "A shipping manifest listing deliveries from the storage room. Various vendor orders are listed. Nothing suspicious.";
+
+Object empty_box "empty box" Demo_Area
+  with name 'empty' 'box' 'cardboard',
+       description "An empty cardboard box that once contained computer equipment.";
+
+Object tape "cassette tape" Vendor_Stall_2
+  with name 'tape' 'cassette',
+       description "A blank cassette tape still in its wrapper. Probably for data storage.";
+
+! ====================================================================
+! SCENERY & CONTAINERS
+! ====================================================================
+
+Object phone "desk phone" Back_Office
+  with name 'phone' 'desk' 'telephone',
+       description "A beige desk telephone with a rotary dial.",
+  has static;
+
+Object safe "safe" Back_Office
+  with name 'safe' 'office',
+       description "A small office safe, firmly locked. You won't be getting into that without the combination.",
+  has static;
+
+Object urgent_crate "prize crate" Storage_Room
+  with name 'prize' 'crate' 'wooden' 'fragile',
+       description [;
+         print "A wooden crate marked 'FRAGILE - SPECTRUM NEXT - GRAND PRIZE' in red letters. ";
+         if (crate_opened)
+           print "The lid has been pried open and lies to one side.";
+         else
+           print "It's been nailed shut firmly.";
+       ],
+       before [;
+         Open:
+           if (~~crate_opened) {
+             if (screwdriver in player) {
+               crate_opened = 1;
+               give self open;
+               move spectrum_next to Storage_Room;
+               print "^^You pry open the crate with the screwdriver. The wood creaks and splinters as the nails give way. ";
+               print "Inside, cushioned in foam packing material, is the stolen SPECTRUM NEXT GRAND PRIZE!^^";
+               print "[*** The grand prize is now visible! ***]^";
+               return true;
+             }
+             else {
+               print "You need a tool to pry it open. The nails are hammered in firmly.^";
+               return true;
+             }
+           }
+           print "The crate is already open, its lid lying to one side.^";
+           return true;
+         Take:
+           print "The crate is far too heavy and bulky to carry around.^";
+           return true;
+       ],
+  has static container;
+
+Object stacked_boxes "stacked boxes" Vendor_Stall_2
+  with name 'stacked' 'boxes' 'empty',
+       description "A pile of empty cardboard boxes stacked against the wall.",
+       before [;
+         Search, Examine:
+           print "You search through the stacked boxes";
+           if (office_key has concealed) {
+             give office_key ~concealed;
+             score = score + 10;
+             print ".^^Hidden between two boxes, you find an office key!^[*** SCORE +10 ***]^";
+           }
+           else {
+             print ". Just empty boxes now.^";
+           }
+           return true;
+       ],
+  has static supporter;
+
+Object staff_door "staff door" Toilets
+  with name 'staff' 'door' 'locked',
+       description [;
+         if (office_unlocked)
+           print "The unlocked staff door stands open to the south.^";
+         else
+           print "A wooden door marked 'STAFF ONLY'. It's locked.^";
+         rtrue;
+       ],
+       before [;
+         Open, Unlock:
+           if (office_unlocked) {
+             print "The door is already unlocked.^";
+             return true;
+           }
+           if (office_key in player) {
+             print "You unlock the door with the office key.^^";
+             office_unlocked = 1;
+             return true;
+           }
+           print "It's locked. You need a key.^";
+           return true;
+       ],
+  has static door;
+
+! ====================================================================
+! NPCs (4 characters)
+! ====================================================================
+
+Object mike "Mike" Cafeteria
+  with name 'mike',
+       description [;
+         if (self in Presentation_Room)
+           print "Mike is waiting eagerly for the raffle to begin.";
+         else
+           print "Mike looks worried and distracted, staring into his coffee cup.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           ! In presentation room, raffle-focused dialogue
+           if (self in Presentation_Room) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "'I won! I can't believe it!' Mike says ecstatically.^";
+               }
+               else {
+                 print "Mike sighs. 'Ah well, maybe next time. Good show though!'^^";
+               }
+             }
+             else {
+               print "'Hope the raffle starts soon!' Mike says nervously.^";
+             }
+           }
+           ! In cafeteria, original dialogue
+           else {
+             if (mike_talked) {
+               print "'Check that storage room!' Mike reminds you.^";
+             }
+             else {
+               mike_talked = 1;
+               score = score + 5;
+               print "'Terrible business about the grand prize!' Mike says, leaning in conspiratorially. ";
+               print "'I saw someone dodgy with a crate heading to the storage area this morning. ";
+               print "Very suspicious. Check behind the stalls.'^^[*** SCORE +5 ***]^";
+             }
+           }
+           return true;
+         Show:
+           ! Show badge to Mike for coffee approval
+           if (noun == show_badge && self in Cafeteria && ~~mike_coffee_approved) {
+             mike_coffee_approved = 1;
+             print "Mike looks at your visitor badge and nods approvingly. ";
+             print "'Ah, good to see you're properly registered! Help yourself to the coffee - it's not great, but it's free!'^^";
+             return true;
+           }
+           if (noun == spectrum_next) {
+             if (self in Presentation_Room && raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Mike grins. 'And I won it fair and square!'^^";
+               }
+               else {
+                 print "Mike looks wistfully at the Spectrum Next. 'Would have loved to win that...'^^";
+               }
+             }
+             else if (self in Presentation_Room && ~~raffle_completed) {
+               print "'Perfect! Give that to Steve and let's get this raffle started!' Mike says excitedly.^";
+             }
+             else {
+               print "'You found it!' Mike exclaims, his eyes widening. 'That's brilliant! ";
+               print "Now get it back to the office before someone realizes you have it!'^^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object dave "Dave" Exhibition_Hall
+  with name 'dave',
+       description [;
+         if (self in Presentation_Room)
+           print "Dave is chatting cheerfully with other club members about the raffle.";
+         else
+           print "Dave is cheerful and talkative, his vendor stall displaying various computer accessories.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           ! In presentation room, raffle-focused dialogue
+           if (self in Presentation_Room) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "'Yes! I never win these things! This is brilliant!' Dave says, beaming.^";
+               }
+               else {
+                 print "'Someone else got lucky this time. Congrats to them!' Dave says cheerfully.^";
+               }
+             }
+             else {
+               print "'Can't wait for the raffle! That Spectrum Next would be perfect for my collection!' Dave says.^";
+             }
+           }
+           ! In exhibition hall, original dialogue
+           else {
+             if (dave_talked) {
+               print "'That vendor is dodgy!' Dave repeats, shaking his head.^";
+             }
+             else {
+               dave_talked = 1;
+               score = score + 10;
+               print "'Alright mate!' Dave says with a grin. 'That vendor in the corner seems dodgy. ";
+               print "Always looking over his shoulder. Prices way too high for those retro machines!'^^[*** BONUS +10 POINTS! ***]^";
+             }
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (self in Presentation_Room && raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Dave points at the Spectrum Next. 'Mine! Well, once the formalities are done!'^^";
+               }
+               else {
+                 print "Dave whistles appreciatively. 'Beautiful machine. Lucky winner!'^^";
+               }
+             }
+             else if (self in Presentation_Room && ~~raffle_completed) {
+               print "'There it is! Give it to Steve and let's draw for it!' Dave says eagerly.^";
+             }
+             else {
+               print "'Is that the stolen Spectrum Next?' Dave asks, impressed. 'Nice work! ";
+               print "Better get that to the office before that dodgy vendor sees you!'^^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object technician "technician" Demo_Area
+  with name 'technician' 'tech' 'man',
+       description "A technician in a polo shirt, focused intently on keeping the demo equipment running smoothly.",
+       life [;
+         Answer, Ask, Tell:
+           print "'Sorry, too busy with this demo,' the technician says without looking up. 'Try back later.'^^";
+           return true;
+       ],
+  has animate talkable;
+
+Object dodgy_vendor "vendor" Vendor_Stall_1
+  with name 'vendor' 'dodgy' 'suspicious',
+       description "The vendor looks nervous and shifty, his eyes darting around constantly.",
+       life [;
+         Answer, Ask, Tell:
+           print "'What? No. I'm busy. Go away,' the vendor snaps, turning his back on you.^";
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             print "The vendor's face goes pale when he sees the Spectrum Next. 'Where did you get that?' ";
+             print "he hisses, looking around nervously. 'Put that away! Someone might see!'^^";
+             return true;
+           }
+       ],
+  has animate talkable;
+
+Object steve "Steve" Entrance_Hall
+  with name 'steve',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Steve is ecstatically examining his new Spectrum Next!";
+         else if (raffle_completed)
+           print "Steve looks pleased that the raffle went well.";
+         else if (self in Presentation_Room)
+           print "Steve is organizing the raffle, looking eager to start.";
+         else
+           print "Steve looks distressed, scanning the crowd anxiously.";
+       ],
+       life [;
+         Give:
+           if (noun == spectrum_next && ~~raffle_completed) {
+             move spectrum_next to self;
+             raffle_completed = 1;
+             ! Pick random winner from all 23 club members
+             raffle_winner = RandomClubMember();
+             print "^^Steve's face lights up! 'You found it! Brilliant!' ";
+             print "He takes the Spectrum Next and addresses the room:^^";
+             print "'Ladies and gentlemen, the moment you've been waiting for! ";
+             print "Thanks to our quick-thinking member here, the raffle is saved!'^^";
+             print "He dramatically draws a name from the hat...^^";
+             print "'And the winner is... ", (name) raffle_winner, "!'^^";
+             print "The room erupts in applause and cheers!^^";
+             return true;
+           }
+           return false;
+         Answer, Ask, Tell:
+           ! Post-raffle dialogue
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I can't believe I won my own raffle!' Steve laughs. 'Pure chance!'^^";
+             }
+             else {
+               print "'Great raffle! Thanks again for finding the prize!' Steve says gratefully.^";
+             }
+           }
+           ! In presentation room, waiting for spectrum
+           else if (self in Presentation_Room) {
+             print "'We need that Spectrum Next for the raffle. Please GIVE it to me when you have it!' Steve says urgently.^";
+           }
+           ! Initial meeting in Entrance Hall
+           else if (~~steve_met) {
+             steve_met = 1;
+             print "Steve rushes over to you, looking panicked.^^";
+             print "'Thank goodness you're here!' he says breathlessly. 'We have a crisis! ";
+             print "The grand prize for tonight's raffle - a rare Special Edition White Spectrum Next - ";
+             print "has been stolen from the club office!^^";
+             print "'I've heard rumours that a dodgy vendor is planning to sell it on eBay before the 6pm draw. ";
+             print "We have only minutes to recover it!^^";
+             print "'Can you help? If you find it, please bring it to me in the presentation room as quickly as possible. ";
+             print "The raffle cannot go ahead without it!'^^";
+           }
+           ! Repeat dialogue after initial meeting
+           else {
+             print "'Please, you must find that Spectrum Next! Time is running out!' Steve says desperately.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next && ~~raffle_completed && self in Presentation_Room) {
+             print "'Perfect! Just GIVE it to me and we can start the raffle!' Steve says eagerly.^";
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object adam "Adam" Presentation_Room
+  with name 'adam',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Adam is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Adam looks a bit disappointed but congratulates the winner.";
+         else
+           print "Adam is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Adam says ecstatically.^";
+             }
+             else {
+               print "Adam shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'I've got my fingers crossed for the Spectrum Next!' Adam says excitedly.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Adam beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Adam sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Adam's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object adrian "Adrian" Presentation_Room
+  with name 'adrian',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Adrian is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Adrian looks a bit disappointed but congratulates the winner.";
+         else
+           print "Adrian is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Adrian says ecstatically.^";
+             }
+             else {
+               print "Adrian shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'That Spectrum Next would be perfect for my collection!' Adrian says enthusiastically.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Adrian beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Adrian sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Adrian's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object alan "Alan" Presentation_Room
+  with name 'alan',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Alan is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Alan looks a bit disappointed but congratulates the winner.";
+         else
+           print "Alan is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Alan says ecstatically.^";
+             }
+             else {
+               print "Alan shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'I really need to win this raffle!' Alan says nervously.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Alan beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Alan sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Alan's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object andrew "Andrew" Presentation_Room
+  with name 'andrew',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Andrew is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Andrew looks a bit disappointed but congratulates the winner.";
+         else
+           print "Andrew is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Andrew says ecstatically.^";
+             }
+             else {
+               print "Andrew shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'The odds are pretty good with only 23 of us!' Andrew says optimistically.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Andrew beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Andrew sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Andrew's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object ben "Ben" Presentation_Room
+  with name 'ben',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Ben is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Ben looks a bit disappointed but congratulates the winner.";
+         else
+           print "Ben is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Ben says ecstatically.^";
+             }
+             else {
+               print "Ben shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'I've never won a raffle in my life, but maybe today!' Ben says with a grin.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Ben beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Ben sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Ben's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object carlo "Carlo" Presentation_Room
+  with name 'carlo',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Carlo is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Carlo looks a bit disappointed but congratulates the winner.";
+         else
+           print "Carlo is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Carlo says ecstatically.^";
+             }
+             else {
+               print "Carlo shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'I've been dreaming about that Spectrum Next for months!' Carlo says wistfully.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Carlo beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Carlo sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Carlo's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object chris_green "Chris Green" Presentation_Room
+  with name 'chris' 'green',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Chris Green is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Chris Green looks a bit disappointed but congratulates the winner.";
+         else
+           print "Chris Green is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Chris Green says ecstatically.^";
+             }
+             else {
+               print "Chris Green shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'Come on lucky number!' Chris Green says, rubbing his hands together.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Chris Green beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Chris Green sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Chris Green's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object chris_ns "Chris NS" Presentation_Room
+  with name 'chris' 'ns',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Chris NS is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Chris NS looks a bit disappointed but congratulates the winner.";
+         else
+           print "Chris NS is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Chris NS says ecstatically.^";
+             }
+             else {
+               print "Chris NS shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'Just imagine, owning a Spectrum Next!' Chris NS says dreamily.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Chris NS beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Chris NS sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Chris NS's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object ed "Ed" Presentation_Room
+  with name 'ed',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Ed is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Ed looks a bit disappointed but congratulates the winner.";
+         else
+           print "Ed is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Ed says ecstatically.^";
+             }
+             else {
+               print "Ed shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'My retro setup needs that Spectrum Next!' Ed says earnestly.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Ed beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Ed sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Ed's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object fasih "Fasih" Presentation_Room
+  with name 'fasih',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Fasih is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Fasih looks a bit disappointed but congratulates the winner.";
+         else
+           print "Fasih is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Fasih says ecstatically.^";
+             }
+             else {
+               print "Fasih shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'This is so exciting! I love raffles!' Fasih says cheerfully.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Fasih beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Fasih sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Fasih's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object gary "Gary" Presentation_Room
+  with name 'gary',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Gary is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Gary looks a bit disappointed but congratulates the winner.";
+         else
+           print "Gary is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Gary says ecstatically.^";
+             }
+             else {
+               print "Gary shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'Feeling lucky today!' Gary says with confidence.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Gary beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Gary sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Gary's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object gordon "Gordon" Presentation_Room
+  with name 'gordon',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Gordon is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Gordon looks a bit disappointed but congratulates the winner.";
+         else
+           print "Gordon is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Gordon says ecstatically.^";
+             }
+             else {
+               print "Gordon shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'Wouldn't that be something special to win!' Gordon muses.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Gordon beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Gordon sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Gordon's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object mark "Mark" Presentation_Room
+  with name 'mark',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Mark is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Mark looks a bit disappointed but congratulates the winner.";
+         else
+           print "Mark is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Mark says ecstatically.^";
+             }
+             else {
+               print "Mark shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'The suspense is killing me!' Mark says anxiously.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Mark beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Mark sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Mark's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object martin "Martin" Presentation_Room
+  with name 'martin',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Martin is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Martin looks a bit disappointed but congratulates the winner.";
+         else
+           print "Martin is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Martin says ecstatically.^";
+             }
+             else {
+               print "Martin shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'I've got a good feeling about this one!' Martin says brightly.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Martin beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Martin sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Martin's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object martyn "Martyn" Presentation_Room
+  with name 'martyn',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Martyn is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Martyn looks a bit disappointed but congratulates the winner.";
+         else
+           print "Martyn is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Martyn says ecstatically.^";
+             }
+             else {
+               print "Martyn shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'Can't wait to see who wins!' Martyn says, bouncing on his heels.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Martyn beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Martyn sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Martyn's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object michael "Michael" Presentation_Room
+  with name 'michael',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Michael is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Michael looks a bit disappointed but congratulates the winner.";
+         else
+           print "Michael is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Michael says ecstatically.^";
+             }
+             else {
+               print "Michael shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'A one in twenty-three chance - I'll take it!' Michael says determinedly.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Michael beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Michael sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Michael's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object muzaffer "Muzaffer" Presentation_Room
+  with name 'muzaffer',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Muzaffer is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Muzaffer looks a bit disappointed but congratulates the winner.";
+         else
+           print "Muzaffer is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Muzaffer says ecstatically.^";
+             }
+             else {
+               print "Muzaffer shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'That machine would be perfect for game development!' Muzaffer says eagerly.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Muzaffer beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Muzaffer sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Muzaffer's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object neil "Neil" Presentation_Room
+  with name 'neil',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Neil is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Neil looks a bit disappointed but congratulates the winner.";
+         else
+           print "Neil is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Neil says ecstatically.^";
+             }
+             else {
+               print "Neil shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'Hoping for a bit of luck here!' Neil says with a smile.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Neil beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Neil sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Neil's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object nigel "Nigel" Presentation_Room
+  with name 'nigel',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Nigel is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Nigel looks a bit disappointed but congratulates the winner.";
+         else
+           print "Nigel is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Nigel says ecstatically.^";
+             }
+             else {
+               print "Nigel shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'I wonder who'll be the lucky one!' Nigel says thoughtfully.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Nigel beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Nigel sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Nigel's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+Object rob "Rob" Presentation_Room
+  with name 'rob',
+       description [;
+         if (raffle_completed && self == raffle_winner)
+           print "Rob is ecstatic, holding his winning ticket!";
+         else if (raffle_completed)
+           print "Rob looks a bit disappointed but congratulates the winner.";
+         else
+           print "Rob is a club member waiting eagerly for the raffle.";
+       ],
+       life [;
+         Answer, Ask, Tell:
+           if (raffle_completed) {
+             if (self == raffle_winner) {
+               print "'I won! I can't believe it!' Rob says ecstatically.^";
+             }
+             else {
+               print "Rob shrugs. 'Ah well, better luck next time I suppose.'^^";
+             }
+           }
+           else {
+             print "'What an amazing prize! Fingers crossed!' Rob says excitedly.^";
+           }
+           return true;
+         Show:
+           if (noun == spectrum_next) {
+             if (raffle_completed) {
+               if (self == raffle_winner) {
+                 print "Rob beams at the Spectrum Next. 'Mine! All mine!' he grins.^";
+               }
+               else {
+                 print "Rob sighs wistfully. 'Wish I'd won that beauty...'^^";
+               }
+             }
+             else {
+               print "Rob's eyes widen. 'Wow, is that the grand prize? Impressive!' he says admiringly.^";
+             }
+             return true;
+           }
+       ],
+  has animate talkable proper;
+
+! ====================================================================
+! CUSTOM VERBS AND ACTIONS
+! ====================================================================
+
+! USE verb
+Verb 'use'
+  * noun -> Use;
+
+[UseSub;
+  if (noun == screwdriver && location == Storage_Room) {
+    <<Open urgent_crate>>;
+  }
+  if (noun == office_key && location == Toilets) {
+    <<Open staff_door>>;
+  }
+  if (noun == phone) {
+    print "You'd need a specific number to dial. Besides, you have a Spectrum Next to recover!^";
+    return;
+  }
+  print "You're not sure how to use that here.^";
+];
+
+! DRINK replacement (handles coffee)
+[ DrinkSub;
+  if (noun == coffee) {
+    if (~~mike_coffee_approved) {
+      print "Mike calls out: 'Sorry, the coffee is for show attendees only. You'll need to show me your visitor badge first!'^^";
+      rtrue;
+    }
+    if (coffee_drunk) {
+      print "You've already drunk the coffee.^";
+      rtrue;
+    }
+    coffee_drunk = 1;
+    score = score + 5;
+    remove coffee;
+    print "You drink the coffee. It's actually not bad - strong and hot. The caffeine gives you a nice boost!^^";
+    print "[*** BONUS +5 POINTS! ***]^";
+    rtrue;
+  }
+  print "That's not something you can drink.^";
+];
+
+! TALK verb
+Verb 'talk' 'chat'
+  * 'to'/'with' creature -> Talk;
+
+[ TalkSub;
+  <<Ask noun>>;
+];
+
+! HELP verb
+Verb 'help' 'info' 'instructions'
+  * -> Help;
+
+[ HelpSub;
+  print "^^BASIC COMMANDS:^";
+  print "  NORTH, SOUTH, EAST, WEST (or N, S, E, W) - Move around^";
+  print "  LOOK (or L) - Look at your surroundings^";
+  print "  EXAMINE [object] (or X) - Look at something closely^";
+  print "  INVENTORY (or I) - See what you're carrying^";
+  print "  TAKE [object] - Pick up an item^";
+  print "  DROP [object] - Drop an item^";
+  print "  OPEN [object] - Open a container or door^";
+  print "  SEARCH [object] - Search through something^";
+  print "  USE [object] - Use an item^";
+  print "  TALK TO [person] - Talk to someone^";
+  print "  ASK [person] ABOUT [topic] - Ask about something^";
+  print "  SCORE - Check your current score^";
+  print "  SAVE - Save your game^";
+  print "  RESTORE - Load a saved game^";
+  print "  QUIT - End the game^^";
+  print "Your mission: Find the stolen Spectrum Next grand prize before the raffle draw!^^";
+];
+
+! ====================================================================
+! GAME MECHANICS - Time Limits (implemented via each_turn)
+! ====================================================================
+
+! Create a timer object that runs each turn
+Object timer_daemon "timer"
+  with each_turn [;
+    ! 50-move time limit
+    if (turns >= 50) {
+      print "^^***TIME'S UP!***^^The raffle draw has started! The organiser can't find the grand prize. ";
+      print "The thief has escaped with the Spectrum Next.^^GAME OVER^^";
+      print "Final Score: ", score, " / ", MAX_SCORE, "^Moves: ", turns, "^^Better luck next time!^^";
+      deadflag = 1;
+      return;
+    }
+
+    ! 35-move thief escape
+    if (turns >= 35 && spectrum_next in Storage_Room && ~~thief_escaped) {
+      thief_escaped = 1;
+      print "^^***THE THIEF ESCAPES!***^^You see a suspicious figure hurrying towards the exit carrying a crate. ";
+      print "By the time you react, he's gone! You've lost the grand prize.^^GAME OVER^^";
+      print "Final Score: ", score, " / ", MAX_SCORE, "^Moves: ", turns, "^^";
+      deadflag = 1;
+      return;
+    }
+  ],
+  has concealed;
+

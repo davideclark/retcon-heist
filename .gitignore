@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Compiled Z-code files
+*.z3
+*.z5
+*.z8
+
+# Inform compiler output
+*.inf~
+*.$$$
+gameinfo.dbg
+*.blb
+
+# Backup files
+*~
+*.bak
+*.swp
+
+# Editor files
+.vscode/
+.idea/
+
+# Logs
+*.log
