@@ -96,6 +96,44 @@ frotz heist28.z3
 4. Run M4ZVM64/CMD or M4ZVM/CMD
 5. Type the filename: `HEIST28`
 
+## Building a Release
+
+To create a new release for distribution on TRS-80:
+
+### Prerequisites
+1. Install [TRS-80GP emulator](http://48k.ca/trs80gp.html)
+2. Clone this repository
+3. Build the game using the instructions in the "Building" section above
+
+### Creating the Release Disk Image
+
+1. **Launch TRS-80GP emulator**
+
+2. **Mount disk images:**
+   - Drive 0: Mount `retcon-heist.dsk` (game disk)
+   - Drive 1: Mount LDOS utilities disk
+
+3. **Delete old game file:**
+   ```
+   KILL STORY/DAT:0
+   ```
+
+4. **Enable FreHD:**
+   - In the emulator, enable FreHD
+   - Set the FreHD directory to your game build folder (where `heistXX.z3` is located)
+
+5. **Import the new game:**
+   ```
+   IMPORT2 HEISTXX/Z3 :0 STORY/DAT
+   ```
+   Replace `XX` with your build number (e.g., `HEIST28/Z3` for build 28)
+
+6. **Verify the import:**
+   - The game should now be on drive 0 as `STORY/DAT`
+   - You can test it by running M4ZVM
+
+The `retcon-heist.dsk` image is now ready for distribution.
+
 ## Technical Details
 
 ### Z-Machine Version
